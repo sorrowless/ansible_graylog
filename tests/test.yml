@@ -1,0 +1,7 @@
+---
+- name: Install and configure Graylog
+  hosts: graylogs
+  remote_user: root
+
+  roles:
+    - graylog

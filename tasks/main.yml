@@ -1,0 +1,102 @@
+---
+- name: Graylog | Prepare | Install needed packages
+  package:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - docker.io
+    - python-docker
+    - docker-compose
+    - nginx
+
+- name: Graylog | Prepare | Create data directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0777
+  with_items:
+    - /var/data/graylog/config
+    - /var/data/graylog/contentpacks
+    - /var/data/graylog/data
+    - /var/data/mongo/data
+    - /var/data/elasticsearch/data
+
+- name: Graylog | Configs | Copy inputs
+  copy:
+    src: contentpacks/
+    dest: /var/data/graylog/contentpacks/
+
+    #- name: Graylog | Configs | Copy config
+    #  copy:
+    #    src: config/graylog.conf
+    #    dest: /var/data/graylog/config/graylog.conf
+
+- name: Graylog | Install | Start Graylog service
+  docker_service:
+    state: present
+    project_name: graylog
+    definition:
+      version: '2'
+      services:
+        # MongoDB: https://hub.docker.com/_/mongo/
+        mongodb:
+          image: mongo:3
+          volumes:
+            - /var/data/mongo/data:/data/db
+          restart: always
+        # Elasticsearch: https://www.elastic.co/guide/en/elasticsearch/reference/5.6/docker.html
+        elasticsearch:
+          image: docker.elastic.co/elasticsearch/elasticsearch:5.6.3
+          volumes:
+            - /var/data/elasticsearch/data:/usr/share/elasticsearch/data
+          environment:
+            - http.host=0.0.0.0
+            - transport.host=localhost
+            - network.host=0.0.0.0
+            - xpack.security.enabled=false
+            - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+          restart: always
+          ulimits:
+            memlock:
+              soft: -1
+              hard: -1
+          mem_limit: 1g
+        # Graylog: https://hub.docker.com/r/graylog/graylog/
+        graylog:
+          image: graylog/graylog:2.4.3-1
+          volumes:
+            - /var/data/graylog/data:/usr/share/graylog/data/journal
+            - /var/data/graylog/contentpacks:/usr/share/graylog/data/contentpacks
+          restart: always
+          environment:
+            # CHANGE ME!
+            - GRAYLOG_PASSWORD_SECRET=somepasswordpepper
+            # Password: admin
+            - GRAYLOG_ROOT_PASSWORD_SHA2=8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+            - GRAYLOG_WEB_ENDPOINT_URI=http://127.0.0.1:9000/api
+            - GRAYLOG_CONTENT_PACKS_AUTO_LOAD=udp-input.json,nginx-inputs.json
+            - GRAYLOG_CONTENT_PACKS_LOADER_ENABLED=true
+            - GRAYLOG_CONTENT_PACKS_DIR=data/contentpacks
+          links:
+            - mongodb:mongo
+            - elasticsearch
+          depends_on:
+            - mongodb
+            - elasticsearch
+          ports:
+            # Graylog web interface and REST API
+            - 9000:9000
+            # Syslog TCP
+            - 514:514
+            # Syslog UDP
+            - 514:514/udp
+            # GELF TCP
+            - 12201:12201
+            # GELF UDP
+            - 12201:12201/udp
+            # Nginx access
+            - 12301:12301/udp
+            # Nginx error
+            - 12302:12302/udp
+
+
