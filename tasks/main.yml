@@ -2,7 +2,7 @@
 - name: Graylog | Prepare | Install needed packages
   package:
     name: "{{ item }}"
-    state: latest
+    state: present
   with_items:
     - docker.io
     - python-docker
