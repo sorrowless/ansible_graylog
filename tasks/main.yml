@@ -32,7 +32,7 @@
     #    dest: /var/data/graylog/config/graylog.conf
 
 - name: Graylog | Install | Start Graylog service
-  docker_service:
+  docker_compose:
     state: present
     project_name: graylog
     definition:
