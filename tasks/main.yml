@@ -32,11 +32,10 @@
     #    dest: /var/data/graylog/config/graylog.conf
 
 - name: Graylog | Install | Start Graylog service
-  docker_service:
+  community.docker.docker_compose_v2:
     state: present
     project_name: graylog
     definition:
-      version: '2'
       services:
         # MongoDB: https://hub.docker.com/_/mongo/
         mongodb:
